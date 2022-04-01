@@ -1,0 +1,11 @@
+*.onnx
+*.engine
+
+*.txt
+*.trace
+*.log
+*.nsys-rep
+
+**/__pycache__/
+**/build/
+**/TensorRT*
