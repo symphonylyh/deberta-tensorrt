@@ -45,15 +45,28 @@ from time import time
 
 TRT_VERSION = trt.__version__[:3] # x.x
 
-GPU_ABBREV = {
-    'Tesla T4': 'T4',
-    'NVIDIA A100-PCIE-80GB': 'A100',
-    'NVIDIA A100 80GB PCIe': 'A100',
-    'NVIDIA A100-PCIE-40GB': 'A100',
-    'NVIDIA A10G': 'A10G',
-}
+def GPU_ABBREV(name):
+    '''
+    Map GPU device query name to abbreviation.
+    
+    ::param str name Device name from torch.cuda.get_device_name().
+    ::return str GPU abbreviation.
+    ''' 
 
-gpu_name = GPU_ABBREV[torch.cuda.get_device_name()]
+    GPU_LIST = [
+        'V100',
+        'T4',
+        'A100',
+        'A10G',
+        'A10'
+    ] # partial list, can be extended
+
+    for i in GPU_LIST:
+        if i in name:
+            return i 
+    # The order of A100, A10G, A10 matters. They're put in a way to not detect substring A10 as A100
+
+gpu_name = GPU_ABBREV(torch.cuda.get_device_name())
 
 VALID_PRECISION = [
     # 'fp32',

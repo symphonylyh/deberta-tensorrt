@@ -26,7 +26,11 @@ CC=g++
 LIBS_AND_INC= -I$(IDIR) -I$(DEBERTA_PLUGIN) -I$(COMMON) -I$(CUDA)/include -L$(CUDA)/lib64 -ldl
 
 CFLAGS=-O3 -Wall -Wno-deprecated-declarations -Wl,--no-undefined -std=c++17 $(LIBS_AND_INC)
-NVCC_FLAGS=-ccbin $(CC) -arch=sm_80 -gencode=arch=compute_80,code=sm_80 -O3 -Wno-deprecated-declarations $(LIBS_AND_INC)
+# NVCC_FLAGS=-ccbin $(CC) -arch=sm_80 -gencode=arch=compute_80,code=sm_80 -O3 -Wno-deprecated-declarations $(LIBS_AND_INC)
+
+NVCC_ARCH = -arch=sm_70 -gencode=arch=compute_70,code=sm_70 -gencode=arch=compute_75,code=sm_75 -gencode=arch=compute_80,code=sm_80 -gencode=arch=compute_86,code=sm_86 -gencode=arch=compute_87,code=sm_87 
+
+NVCC_FLAGS=-ccbin $(CC) ${NVCC_ARCH} -O3 -Wno-deprecated-declarations $(LIBS_AND_INC)
 
 ODIR=./build/obj
 EXEC_OUT=./build/bin
