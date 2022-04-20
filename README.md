@@ -1,8 +1,7 @@
 
-- [Instructions of NVIDIA TensorRT Plugin for Microsoft DeBERTa Model](#instructions-of-nvidia-tensorrt-plugin-for-microsoft-deberta-model)
+- [Instructions of Using NVIDIA TensorRT Plugin in ONNX Runtime for Microsoft DeBERTa Model](#instructions-of-using-nvidia-tensorrt-plugin-in-onnx-runtime-for-microsoft-deberta-model)
   - [Background](#background)
   - [Download](#download)
-  - [Docker Setup](#docker-setup)
   - [Step 1: PyTorch Model to ONNX graph](#step-1-pytorch-model-to-onnx-graph)
   - [Step 2: Modify ONNX graph with TensorRT plugin nodes](#step-2-modify-onnx-graph-with-tensorrt-plugin-nodes)
   - [Step 3: Build TensorRT plugin](#step-3-build-tensorrt-plugin)
@@ -11,33 +10,58 @@
 
 ***
 
-## Instructions of NVIDIA TensorRT Plugin for Microsoft DeBERTa Model
+## Instructions of Using NVIDIA TensorRT Plugin in ONNX Runtime for Microsoft DeBERTa Model
 
 ### Background
 Performance gap has been observed between Google's [BERT](https://arxiv.org/abs/1810.04805) design and Microsoft's [DeBERTa](https://arxiv.org/abs/2006.03654) design. The main reason of the gap is the disentangled attention design in DeBERTa triples the attention computation over BERT's regular attention. In addition to the extra matrix multiplications, the disentangled attention design also involves indirect memory accesses during the gather operations. This TensorRT plugin is designed to optimize DeBERTa's disentangled attention module.
 
 This TensorRT plugin works for the [HuggingFace implementation](https://github.com/huggingface/transformers/tree/main/src/transformers/models/deberta_v2) of DeBERTa and includes code and scripts for (i) exporting ONNX model fro PyTorch, (ii) modifying ONNX model by inserting the plugin nodes, (iii) CUDA TensorRT implementation of the optimized disentangled attention, and (iv) measuring the correctness and performance of the optimized model.
 
-The performance statistics are on NVIDIA A100 (80GB) and FP16 precision, which is same as the Microsoft ONNX Runtime team's platform.
-
 Detailed steps are given as follows.
 
 ### Download
 ```bash
-git clone https://github.com/symphonylyh/deberta-tensorrt.git
+# this repo
+git clone -b ort-trt https://github.com/symphonylyh/deberta-tensorrt.git
 cd deberta-tensorrt
+
+# TensorRT OSS
+git clone -b main https://github.com/symphonylyh/TensorRT.git
+cd TensorRT && git submodule update --init --recursive && cd ..
+
+# onnxruntime
+git clone -b deberta_trt_plugin https://github.com/symphonylyh/onnxruntime.git
+cd onnxruntime && git submodule update --init --recursive && cd ..
 ```
 
-### Docker Setup
-It is recommended to use docker for reproducing the following steps. Docker file `deberta.dockefile` configures the docker environment on top of public [NGC TensorRT container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tensorrt). The docker file will install all dependencies listed in `docker_setup.sh`.
+Note: this repo has two dependencies: `TensorRT` and `onnxruntime` (adding as submodules is problematic since TensorRT repo has nested submodules too). The dependencies currently point to my forked version of TensorRT OSS and onnxruntime with all necessary changes to enable the plugin before public release. After all the following changes have been released publicly, the repos should be directed to the official repos:
+* TensorRT OSS release of the disentangled attention plugin implementation
+* onnx-tensorrt release of the supported plugin operator
+* onnxruntime release of the supported plugin operator
+
+<!-- To change the submodule's URL, you can either modify the .gitmodules manually, or update the upstream (using TensorRT for example below).
 
 ```bash
-docker build --rm --no-cache -t deberta:latest -f deberta.dockerfile . # this only needs be done once on the same machine
+cd TensorRT
+git remote add upstream https://github.com/NVIDIA/TensorRT.git 
+git fetch upstream
+git checkout upstream/main
+``` -->
 
-docker run --gpus all -it --rm --memory=8g --user $(id -u):$(id -g) -v $(pwd):/deberta/ --workdir /deberta/ deberta:latest # run the docker
+### Docker Setup
+It is recommended to use docker for reproducing the following steps. Docker file `deberta.dockefile` configures the docker environment on top of public [NGC TensorRT container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tensorrt).
+
+```bash
+docker build --build-arg uid=$(id -u) --build-arg gid=$(id -g) -t deberta:latest -f deberta.dockerfile . # this only needs be done once on the same machine
+
+docker run --gpus all -it --rm --memory=8g --user $(id -u):$(id -g) -v $(pwd):/workspace/ deberta:latest # run the docker (sudo password: nvidia)
+
+# build TensorRT OSS and ONNX Runtime
+./build_trt.sh
+./built_ort.sh
 ```
 
-Note: the latest docker container is TensorRT 8.2.3, with TensorRT Python API updated to 8.4 EA (8.4.0.6). But if you need to run `trtexec` command, please login and download the TensorRT 8.4 EA TAR package from [Public TensorRT download](https://developer.nvidia.com/nvidia-tensorrt-8x-download) page. Untar the file and place it under this repo. `trtexec` will be at `TensorRT-8.4.0.6/bin/trtexec`.
+Note: the docker container is installed with TensorRT version 8.2.4.2.
 
 ### Step 1: PyTorch Model to ONNX graph
 ```bash
