@@ -1,0 +1,8 @@
+[submodule "TensorRT"]
+	path = TensorRT
+	url = https://github.com/symphonylyh/TensorRT.git
+	branch = main
+[submodule "onnxruntime"]
+	path = onnxruntime
+	url = https://github.com/symphonylyh/onnxruntime.git
+	branch = deberta_trt_plugin

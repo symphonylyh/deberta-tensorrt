@@ -2,6 +2,7 @@
 - [Instructions of Using NVIDIA TensorRT Plugin in ONNX Runtime for Microsoft DeBERTa Model](#instructions-of-using-nvidia-tensorrt-plugin-in-onnx-runtime-for-microsoft-deberta-model)
   - [Background](#background)
   - [Download](#download)
+  - [Docker Setup](#docker-setup)
   - [Step 1: PyTorch Model to ONNX graph](#step-1-pytorch-model-to-onnx-graph)
   - [Step 2: Modify ONNX graph with TensorRT plugin nodes](#step-2-modify-onnx-graph-with-tensorrt-plugin-nodes)
   - [Step 3: Test DeBERTa model with ORT performance test](#step-3-test-deberta-model-with-ort-performance-test)
@@ -23,29 +24,22 @@ Detailed steps are given as follows.
 # this repo
 git clone -b ort-trt https://github.com/symphonylyh/deberta-tensorrt.git
 cd deberta-tensorrt
-
-# TensorRT OSS
-git clone -b main https://github.com/symphonylyh/TensorRT.git
-cd TensorRT && git submodule update --init --recursive && cd ..
-
-# onnxruntime
-git clone -b deberta_trt_plugin https://github.com/symphonylyh/onnxruntime.git
-cd onnxruntime && git submodule update --init --recursive && cd ..
+git submodule update --init --recursive
 ```
 
-Note: this repo has two dependencies: `TensorRT` and `onnxruntime` (adding as submodules is problematic since TensorRT repo has nested submodules too). The dependencies currently point to my forked version of TensorRT OSS and onnxruntime with all necessary changes to enable the plugin before public release. After all the following changes have been released publicly, the repos should be directed to the official repos:
+Note: this repo has two submodules: `TensorRT` and `onnxruntime`. The submodules currently point to my forked version of TensorRT OSS and onnxruntime with all necessary changes to enable the plugin before public release. After all the following changes have been released publicly, the repos should be directed to the official repos:
 * TensorRT OSS release of the disentangled attention plugin implementation
 * onnx-tensorrt release of the supported plugin operator
 * onnxruntime release of the supported plugin operator
 
-<!-- To change the submodule's URL, you can either modify the .gitmodules manually, or update the upstream (using TensorRT for example below).
+To change the submodule's URL later, you can either modify the .gitmodules manually, or update the upstream (using TensorRT for example below).
 
 ```bash
 cd TensorRT
 git remote add upstream https://github.com/NVIDIA/TensorRT.git 
 git fetch upstream
 git checkout upstream/main
-``` -->
+```
 
 ### Docker Setup
 It is recommended to use docker for reproducing the following steps. Docker file `deberta.dockefile` configures the docker environment on top of public [NGC TensorRT container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tensorrt).
