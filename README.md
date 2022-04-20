@@ -22,8 +22,8 @@ Detailed steps are given as follows.
 ### Download
 ```bash
 # this repo
-git clone -b ort-trt https://github.com/symphonylyh/deberta-tensorrt.git
-cd deberta-tensorrt
+git clone https://github.com/symphonylyh/deberta-tensorrt.git
+cd deberta-tensorrt # make sure on master branch
 git submodule update --init --recursive
 ```
 
@@ -87,7 +87,7 @@ python deberta_ort_inference.py --onnx=./test/deberta_plugin.onnx --test fp16
 python deberta_ort_inference.py --onnx=./test/deberta --correctness_check fp16 # correctness check
 ```
 
-The metrics for correctness check are average and maximum of the element-wise absolute error. Note that for FP16 precision with 10 significance bits, absolute error in the order of 1e-3 and 1e-4 is expected. Refer to [Machine Epsilon](https://en.wikipedia.org/wiki/Machine_epsilon) for details. 
+The metrics for correctness check are average and maximum of the element-wise absolute error. Note that for FP16 precision with 10 significance bits, absolute error in the order of 1e-3 and 1e-4 is expected. Refer to [Machine Epsilon](https://en.wikipedia.org/wiki/Machine_epsilon) for details. During testing, we commonly see the error is in the order of 1e-8 for FP32, 1e-4 to 1e-5 for FP16, and for INT8. Note the correctness check in the ORT run is for final prediction results. For per-layer intermediate results check which was verified before, please refer to the `trt-test` branch.
 
 
 

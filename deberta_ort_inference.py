@@ -67,13 +67,13 @@ gpu_name = GPU_ABBREV(torch.cuda.get_device_name())
 VALID_PRECISION = [
     'fp32',
     'fp16',
-    'int8'
+    # 'int8' # int8 needs changes from the model side, not valid at this moment
 ]
 
 parser = argparse.ArgumentParser(description="Build and test TensorRT engine.")
 parser.add_argument('--onnx', required=True, help='ONNX model path (or filename stem if in correctness check mode).')
-parser.add_argument('--test', nargs='+', help='Test ORT-TRT engine in precision fp32/fp16/int8. You can list multiple precisions to test all of them.') # nargs='+': varible number of args, but require at least one
-parser.add_argument('--correctness_check', nargs='+', help='Correctness check for original & plugin TRT engines in precision fp32/fp16/int8. You can list multiple precisions to check all of them.')
+parser.add_argument('--test', nargs='+', help='Test ORT-TRT engine in precision fp32/fp16. You can list multiple precisions to test all of them.') # nargs='+': varible number of args, but require at least one
+parser.add_argument('--correctness_check', nargs='+', help='Correctness check for original & plugin TRT engines in precision fp32/fp16. You can list multiple precisions to check all of them.')
 
 args = parser.parse_args()
 
@@ -100,7 +100,7 @@ def test_engine():
         # EP options: https://onnxruntime.ai/docs/execution-providers/TensorRT-ExecutionProvider.html#execution-provider-options
 
         so = ort.SessionOptions()
-        so.log_severity_level = 0 # 0:Verbose, 1:Info, 2:Warning. 3:Error, 4:Fatal. Default is 2
+        # so.log_severity_level = 0 # 0:Verbose, 1:Info, 2:Warning. 3:Error, 4:Fatal. Default is 2
 
         sess = ort.InferenceSession(ONNX_MODEL, sess_options=so, providers=providers) 
 
@@ -126,7 +126,7 @@ def test_engine():
         end_time = time()
 
         duration = end_time - start_time
-        print(f'Average Inference time (ms) of {nreps} runs: {duration/nreps*1000:.3f}')
+        print(f'Average Inference time (ms) of {nreps} runs: {duration/nreps*1000:.3f}. For more accurate test, please use the onnxruntime_perf_test commands.')
 
 def correctness_check_engines():
     
@@ -164,7 +164,7 @@ def correctness_check_engines():
             'CUDAExecutionProvider'] 
 
         sess1 = ort.InferenceSession(ONNX_MODEL+'.onnx', sess_options=so, providers=providers1)
-        sess2 = ort.InferenceSession(ONNX_MODEL+'_plugin.onnx', sess_options=so, providers=providers2) 
+        sess2 = ort.InferenceSession(ONNX_MODEL+'_plugin.onnx', sess_options=so, providers=providers2)
 
         ## psuedo-random input test
         batch_size = 1
@@ -183,6 +183,9 @@ def correctness_check_engines():
         for i in range(len(outputs1)):
             avg_abs_error = np.sum(np.abs(outputs1[i] - outputs2[i])) / outputs1[i].size
             max_abs_error = np.max(np.abs(outputs1[i] - outputs2[i]))
+            print(f"Output {i}:")
+            print("onnx model (original): ", outputs1[i])
+            print("onnx model (plugin): ", outputs2[i])
             print(f"[Output {i} Element-wise Check] Avgerage absolute error: {avg_abs_error:e}, Maximum absolute error: {max_abs_error:e}. Below the order of 1e-3 and 1e-4 is the expected precision for FP16 (10 significance bits)" ) # machine epsilon for different precisions: https://en.wikipedia.org/wiki/Machine_epsilon
 
 if TEST:
