@@ -21,5 +21,5 @@ cmake .. -DTRT_LIB_DIR=$TRT_LIBPATH -DTRT_OUT_DIR=$TRT_OSSPATH/build/out
 make -j$(nproc)
 
 # for TRT to be later built into ORT, adding OSS build path to LD_LIBRARY_PATH is not working. We have to do a hard replacment of libnvinfer_plugin.so and libnvinfer_static.a (the root one, not the symlinks) to TensorRT lib
-cp ./out/libnvinfer_plugin.so.8.2.4 ${TRT_LIBPATH}
-cp ./out/libnvinfer_static.a ${TRT_LIBPATH}
+echo "nvidia" | sudo -S cp ./out/libnvinfer_plugin.so.8.2.4 ${TRT_LIBPATH}
+echo "nvidia" | sudo -S cp ./out/libnvinfer_plugin_static.a ${TRT_LIBPATH} # sudo -S to read password from stdin

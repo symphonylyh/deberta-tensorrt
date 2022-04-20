@@ -4,9 +4,8 @@
   - [Download](#download)
   - [Step 1: PyTorch Model to ONNX graph](#step-1-pytorch-model-to-onnx-graph)
   - [Step 2: Modify ONNX graph with TensorRT plugin nodes](#step-2-modify-onnx-graph-with-tensorrt-plugin-nodes)
-  - [Step 3: Build TensorRT plugin](#step-3-build-tensorrt-plugin)
-  - [Step 4: Test DeBERTa model with TensorRT plugin (Python TensorRT API and `trtexec`)](#step-4-test-deberta-model-with-tensorrt-plugin-python-tensorrt-api-and-trtexec)
-  - [Optional Step: Correctness Check of Modified DeBERTa Model](#optional-step-correctness-check-of-modified-deberta-model)
+  - [Step 3: Test DeBERTa model with ORT performance test](#step-3-test-deberta-model-with-ort-performance-test)
+  - [Step 4: Test DeBERTa model with ORT Python API](#step-4-test-deberta-model-with-ort-python-api)
 
 ***
 
@@ -54,66 +53,47 @@ It is recommended to use docker for reproducing the following steps. Docker file
 ```bash
 docker build --build-arg uid=$(id -u) --build-arg gid=$(id -g) -t deberta:latest -f deberta.dockerfile . # this only needs be done once on the same machine
 
-docker run --gpus all -it --rm --memory=8g --user $(id -u):$(id -g) -v $(pwd):/workspace/ deberta:latest # run the docker (sudo password: nvidia)
+docker run --gpus all -it --rm --user $(id -u):$(id -g) -v $(pwd):/workspace/ deberta:latest # run the docker (sudo password: nvidia)
 
 # build TensorRT OSS and ONNX Runtime
 ./build_trt.sh
-./built_ort.sh
+./build_ort.sh # this will pip install the ORT wheel too
 ```
 
 Note: the docker container is installed with TensorRT version 8.2.4.2.
 
 ### Step 1: PyTorch Model to ONNX graph
 ```bash
-python deberta_pytorch2onnx.py --filename deberta.onnx
+python deberta_pytorch2onnx.py --filename ./test/deberta.onnx
 ```
 
 This will export the DeBERTa model (`modeling_deberta_v2.py`) from HuggingFace's PyTorch implementation into ONNX format, with user given file name. Note there are several modifications from HuggingFace's implementation to remove the int8 cast operations. Details of the modification can be found in the description in `deberta_pytorch2onnx.py`.
 
 ### Step 2: Modify ONNX graph with TensorRT plugin nodes
 ```bash
-python deberta_onnx_modify.py deberta.onnx
+python deberta_onnx_modify.py ./test/deberta.onnx
 ```
 To enable TensorRT plugin for disentangled attention, the ONNX graph need to be modified by replacing a subgraph with the plugin node. This file automates the procedure and will by default save the modified graph with suffix `_plugin.onnx` in the file name. Or you can specify `--output [filename]`.
 
-### Step 3: Build TensorRT plugin
+### Step 3: Test DeBERTa model with ORT performance test
 ```bash
-cd ./plugin
-make
-cd ..
-```
-This will build the disentangled attention plugin as a `.so` shared library at `./plugin/build/bin/libcustomplugins.so`.
+./onnxruntime/build/Linux/Release/onnxruntime_perf_test -i "trt_fp16_enable|true" -t 10 -e tensorrt ./test/deberta.onnx | tee ./test/deberta.log
 
-### Step 4: Test DeBERTa model with TensorRT plugin (Python TensorRT API and `trtexec`)
-```bash
-# build and test the original DeBERTa model (baseline)
-python deberta_tensorrt_inference.py --onnx=deberta.onnx --build fp16 --plugin=./plugin/build/bin/libcustomplugins.so 
-python deberta_tensorrt_inference.py --onnx=deberta.onnx --test fp16 --plugin=./plugin/build/bin/libcustomplugins.so 
-
-# build and test the optimized DeBERTa model with plugin
-python deberta_tensorrt_inference.py --onnx=deberta_plugin.onnx --build fp16 --plugin=./plugin/build/bin/libcustomplugins.so 
-python deberta_tensorrt_inference.py --onnx=deberta_plugin.onnx --test fp16 --plugin=./plugin/build/bin/libcustomplugins.so 
-```
-This will build and test the original and optimized DeBERTa models. `--build` to build the engine from ONNX model, and `--test` to measure the optimized latency. TensorRT engine of different precisions can be built (but currently only supported fp16 for DeBERTa's use case).
-
-Engine files are saved as `[Model name]_[GPU name]_[Precision].engine`. Note that TensorRT engines are specific to the exact GPU model they were built on, as well as the platform and the TensorRT version. On the same machine, build is needed only once and the engine will be saved for repeatedly testing.
-
-For `trtexec` test, several example commands are provided in `deberta_trtexec.sh`.
-
-### Optional Step: Correctness Check of Modified DeBERTa Model
-```bash
-# prepare the ONNX models with intermediate output nodes (this will save two new onnx models with suffix `_correctness_check_original.onnx` and `_correctness_check_plugin.onnx`)
-python deberta_onnx_modify.py deberta.onnx --correctness_check
-
-# build the ONNX models with intermediate outputs
-python deberta_tensorrt_inference.py --onnx=deberta_correctness_check_original.onnx --build fp16 --plugin=./plugin/build/bin/libcustomplugins.so
-python deberta_tensorrt_inference.py --onnx=deberta_correctness_check_plugin.onnx --build fp16 --plugin=./plugin/build/bin/libcustomplugins.so
-
-# run correctness check (specify the root model name with --onnx)
-python deberta_tensorrt_inference.py --onnx=deberta --correctness_check fp16 --plugin=./plugin/build/bin/libcustomplugins.so
+./onnxruntime/build/Linux/Release/onnxruntime_perf_test -i "trt_fp16_enable|true" -t 10 -e tensorrt ./test/deberta_plugin.onnx | tee ./test/deberta_plugin.log
 ```
 
-Correctness check requires intermediate outputs from the model, thus it is necessary to modify the ONNX graph and add intermediate output nodes. The correctness check was added at the location of plugin outputs in each layer. The metric is average and maximum of the element-wise absolute error. Note that for FP16 precision with 10 significance bits, absolute error in the order of 1e-3 and 1e-4 is expected. Refer to [Machine Epsilon](https://en.wikipedia.org/wiki/Machine_epsilon) for details. 
+Note that the default [onnxruntime performance test](https://github.com/microsoft/onnxruntime/tree/master/onnxruntime/test/perftest) requires specific directory tree for the input data and models. An example data is given at `test/test_data_set_0/`.
+
+### Step 4: Test DeBERTa model with ORT Python API
+```bash
+python deberta_ort_inference.py --onnx=./test/deberta.onnx --test fp16
+
+python deberta_ort_inference.py --onnx=./test/deberta_plugin.onnx --test fp16
+
+python deberta_ort_inference.py --onnx=./test/deberta --correctness_check fp16 # correctness check
+```
+
+The metrics for correctness check are average and maximum of the element-wise absolute error. Note that for FP16 precision with 10 significance bits, absolute error in the order of 1e-3 and 1e-4 is expected. Refer to [Machine Epsilon](https://en.wikipedia.org/wiki/Machine_epsilon) for details. 
 
 
 

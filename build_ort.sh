@@ -18,4 +18,4 @@
 cd $ORT_PATH
 ./build.sh --parallel --build_shared_lib --cudnn_home ${CUDNN_HOME} --cuda_home ${CUDA_HOME} --use_tensorrt --tensorrt_home ${TRT_LIBPATH} --config Release --build_wheel --skip_tests --skip_submodule_sync
 
-# pip install ./build/Linux/Release/dist/*.whl
+pip install ./build/Linux/Release/dist/*.whl
