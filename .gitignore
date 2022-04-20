@@ -1,5 +1,6 @@
 *.onnx
 *.engine
+*.profile
 
 *.txt
 *.trace
@@ -9,3 +10,4 @@
 **/__pycache__/
 **/build/
 **/TensorRT*
+**/onnxruntime/

@@ -24,8 +24,8 @@ Detailed steps are given as follows.
 
 ### Download
 ```bash
-git clone https://github.com/symphonylyh/deberta-tensorrt.git
-cd deberta-tensorrt
+git clone -b trt-test https://github.com/symphonylyh/deberta-tensorrt.git
+cd deberta-tensorrt # make sure on trt-test branch
 ```
 
 ### Docker Setup
