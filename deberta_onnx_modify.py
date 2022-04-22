@@ -123,7 +123,7 @@ def insert_disentangled_attention_v1(self, inputs, outputs):
     # disconnect previous output from flow (the previous subgraph still exists but is effectively dead since it has no link to an output tensor, and thus will be cleaned up)
     [out.inputs.clear() for out in outputs]
     # add plugin layer
-    self.layer(op='DisentangledAttentionPlugin', inputs=inputs, outputs=outputs)
+    self.layer(op='DisentangledAttention_TRT', inputs=inputs, outputs=outputs)
 
 def insert_disentangled_attention_all_v1(graph):
     '''
@@ -170,7 +170,7 @@ def insert_disentangled_attention_v2(self, inputs, outputs, factor, span):
         "factor": 1/factor,
         "span": span
     }
-    self.layer(op='DisentangledAttentionPlugin', inputs=inputs, outputs=outputs, attrs=attrs)
+    self.layer(op='DisentangledAttention_TRT', inputs=inputs, outputs=outputs, attrs=attrs)
 
 def insert_disentangled_attention_all_v2(graph):
     '''
