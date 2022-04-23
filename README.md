@@ -25,7 +25,6 @@ Detailed steps are given as follows.
 git clone https://github.com/symphonylyh/deberta-tensorrt.git
 cd deberta-tensorrt # make sure on master branch
 git submodule update --init --recursive
-# git submodule update --remote # if you clone this repo before and there are new commits in the submodules, use this to get the latest version
 ```
 
 Note: this repo has two submodules: `TensorRT` and `onnxruntime`. The submodules currently point to my forked version of TensorRT OSS and onnxruntime with all necessary changes to enable the plugin before public release. After all the following changes have been released publicly, the repos should be directed to the official repos:
