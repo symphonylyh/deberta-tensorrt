@@ -27,19 +27,23 @@ cd deberta-tensorrt # make sure on master branch
 git submodule update --init --recursive
 ```
 
-Note: this repo has two submodules: `TensorRT` and `onnxruntime`. The submodules currently point to my forked version of TensorRT OSS and onnxruntime with all necessary changes to enable the plugin before public release. After all the following changes have been released publicly, the repos should be directed to the official repos:
-* TensorRT OSS release of the disentangled attention plugin implementation
-* onnx-tensorrt release of the supported plugin operator
-* onnxruntime release of the supported plugin operator
+~~Note: this repo has two submodules: `TensorRT` and `onnxruntime`. The submodules currently point to my forked version of TensorRT OSS and onnxruntime with all necessary changes to enable the plugin before public release. After all the following changes have been released publicly, the repos should be directed to the official repos:~~
+~~* TensorRT OSS release of the disentangled attention plugin implementation~~
+~~* onnx-tensorrt release of the supported plugin operator~~
+~~* onnxruntime release of the supported plugin operator~~
 
-To change the submodule's URL later, you can either modify the .gitmodules manually, or update the upstream (using TensorRT for example below).
+~~To change the submodule's URL later, you can either modify the .gitmodules manually, or update the upstream (using TensorRT for example below).~~
 
+<details>
+  <summary>collapsed</summary>
 ```bash
 cd TensorRT
 git remote add upstream https://github.com/NVIDIA/TensorRT.git 
 git fetch upstream
 git checkout upstream/main
 ```
+</details>
+
 
 ### Docker Setup
 It is recommended to use docker for reproducing the following steps. Docker file `deberta.dockefile` configures the docker environment on top of public [NGC TensorRT container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tensorrt).
