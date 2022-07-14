@@ -75,9 +75,17 @@ def export():
                   'output' : {0 : 'batch_size'}}
     
     # inference
-    results = deberta_model(input_ids, attention_mask)
-    # print(results)
+    start = time.time()
+    trials = 10
 
+    for i in range(trials):
+        results = deberta_model(input_ids, attention_mask)
+        # print(results)
+
+    end = time.time()
+
+    print("Average PyTorch run time: {:.2f} ms".format((end - start)/trials*1000))
+    
     # ONNX export
     torch.onnx.export(deberta_model, # model 
                      (input_ids, attention_mask), # model inputs
@@ -88,6 +96,10 @@ def export():
                      input_names = input_names,
                      output_names = output_names,
                      dynamic_axes = dynamic_axes)
+    
+    # model size
+    total_params = sum(param.numel() for param in deberta_model.parameters())
+    print("Total # of params: ", total_params)
 
 def test(onnx_path):
     os.environ["ORT_TENSORRT_ENGINE_CACHE_ENABLE"] = "1"
