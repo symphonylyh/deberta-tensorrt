@@ -74,17 +74,26 @@ def export():
                   'attention_mask'   : {0 : 'batch_size'},   
                   'output' : {0 : 'batch_size'}}
     
-    # inference
-    start = time.time()
+    # full precision inference
     trials = 10
 
+    start = time.time()
     for i in range(trials):
         results = deberta_model(input_ids, attention_mask)
         # print(results)
-
     end = time.time()
 
-    print("Average PyTorch run time: {:.2f} ms".format((end - start)/trials*1000))
+    print("Average PyTorch FP32/TF32 time: {:.2f} ms".format((end - start)/trials*1000))
+    
+    # half precision inference
+    deberta_model_fp16 = deberta_model.half()
+    start = time.time()
+    for i in range(trials):
+        results = deberta_model_fp16(input_ids, attention_mask)
+        # print(results)
+    end = time.time()
+
+    print("Average PyTorch FP32/TF32 time: {:.2f} ms".format((end - start)/trials*1000))
     
     # ONNX export
     torch.onnx.export(deberta_model, # model 
