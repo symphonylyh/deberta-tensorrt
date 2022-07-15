@@ -74,6 +74,17 @@ def export():
                   'attention_mask'   : {0 : 'batch_size'},   
                   'output' : {0 : 'batch_size'}}
     
+    # ONNX export
+    torch.onnx.export(deberta_model, # model 
+                     (input_ids, attention_mask), # model inputs
+                     deberta_model_name,
+                     export_params=True,
+                     opset_version=13,
+                     do_constant_folding=True,
+                     input_names = input_names,
+                     output_names = output_names,
+                     dynamic_axes = dynamic_axes)
+    
     # full precision inference
     trials = 10
 
@@ -85,7 +96,7 @@ def export():
 
     print("Average PyTorch FP32/TF32 time: {:.2f} ms".format((end - start)/trials*1000))
     
-    # half precision inference
+    # half precision inference (do this after onnx export, otherwise the export ONNX model is with FP16 weights...)
     deberta_model_fp16 = deberta_model.half()
     start = time.time()
     for i in range(trials):
@@ -94,17 +105,6 @@ def export():
     end = time.time()
 
     print("Average PyTorch FP16 time: {:.2f} ms".format((end - start)/trials*1000))
-    
-    # ONNX export
-    torch.onnx.export(deberta_model, # model 
-                     (input_ids, attention_mask), # model inputs
-                     deberta_model_name,
-                     export_params=True,
-                     opset_version=13,
-                     do_constant_folding=True,
-                     input_names = input_names,
-                     output_names = output_names,
-                     dynamic_axes = dynamic_axes)
     
     # model size
     total_params = sum(param.numel() for param in deberta_model.parameters())
