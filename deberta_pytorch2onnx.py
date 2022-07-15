@@ -93,7 +93,7 @@ def export():
         # print(results)
     end = time.time()
 
-    print("Average PyTorch FP32/TF32 time: {:.2f} ms".format((end - start)/trials*1000))
+    print("Average PyTorch FP16 time: {:.2f} ms".format((end - start)/trials*1000))
     
     # ONNX export
     torch.onnx.export(deberta_model, # model 
