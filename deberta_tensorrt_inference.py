@@ -1,11 +1,12 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,20 +20,20 @@ Build and test TensorRT engine of DeBERTa model. Different precisions are suppor
 
 Usage: 
 Build and test a model:
-    - build: python deberta_tensorrt_inference.py --onnx=deberta.onnx --build fp16 --plugin=./plugin/build/bin/libcustomplugins.so
-    - test: python deberta_tensorrt_inference.py --onnx=deberta.onnx --test fp16 --plugin=./plugin/build/bin/libcustomplugins.so
-    test will measure the inference time
+    - build: python deberta_tensorrt_inference.py --onnx=xx.onnx --build fp16 # build TRT engines
+    - test: python deberta_tensorrt_inference.py --onnx=xx.onnx --test fp16 # test will measure the inference time
+    - build and test: python deberta_tensorrt_inference.py --onnx=xx.onnx --build fp16 --test fp16
 
-Correctness check by comparing original model and model with plugin:
-    - [1] export ONNX model with extra output nodes: python deberta_onnx_modify.py deberta.onnx --correctness_check
-    - [2] build original model: python deberta_tensorrt_inference.py --onnx=deberta_correctness_check_original.onnx --build fp16 --plugin=./plugin/build/bin/libcustomplugins.so
-    - [3] build plugin model: python deberta_tensorrt_inference.py --onnx=deberta_correctness_check_plugin.onnx --build fp16 --plugin=./plugin/build/bin/libcustomplugins.so
-    - [4] correctness check: python deberta_tensorrt_inference.py --onnx=deberta --correctness_check fp16 --plugin=./plugin/build/bin/libcustomplugins.so
+Correctness check by comparing original model and plugin model:
+    - [1] export ONNX model with extra output nodes: python deberta_onnx_modify.py xx.onnx --correctness-check
+    - [2] build original model: python deberta_tensorrt_inference.py --onnx=xx_correctness_check_original.onnx --build fp16
+    - [3] build plugin model: python deberta_tensorrt_inference.py --onnx=xx_correctness_check_plugin.onnx --build fp16
+    - [4] correctness check: python deberta_tensorrt_inference.py --onnx=deberta --correctness_check fp16
 
 Notes: 
-    - supported precision is fp16 (more TBD, but Microsoft current focus is FP16). For both build and test, you can specify more than one precisions, and TensorRT engine of each precision will be built sequentially.
-    - engine files are saved as `/path/[Model name]_[GPU name]_[Precision].engine`. Note that TensorRT engine is specific to both GPU architecture and TensorRT version. 
-    - if in --correctness_check mode, the argument for --onnx is the root name for the models [root]_correctness_check_original/plugin.onnx
+    - supported precisions are fp32/tf32/fp16. For both --build and --test, you can specify more than one precisions, and TensorRT engine of each precision will be built sequentially.
+    - engine files are saved as `**/[Model name]_[GPU name]_[Precision].engine`. Note that TensorRT engine is specific to both GPU architecture and TensorRT version, i.e. not cross-platform/cross-device. 
+    - in --correctness-check mode, the argument for --onnx is the `root` name for the models [root]_correctness_check_original/plugin.onnx
 """
 
 import torch
@@ -42,8 +43,6 @@ import numpy as np
 import pycuda.driver as cuda
 import pycuda.autoinit # without this, "LogicError: explicit_context_dependent failed: invalid device context - no currently active context?"
 from time import time
-
-TRT_VERSION = trt.__version__[:3] # x.x
 
 def GPU_ABBREV(name):
     '''
@@ -55,6 +54,7 @@ def GPU_ABBREV(name):
 
     GPU_LIST = [
         'V100',
+        'TITAN',
         'T4',
         'A100',
         'A10G',
@@ -66,21 +66,20 @@ def GPU_ABBREV(name):
             return i 
     # The order of A100, A10G, A10 matters. They're put in a way to not detect substring A10 as A100
 
-gpu_name = GPU_ABBREV(torch.cuda.get_device_name())
+gpu_name = 'NV' # for unit test, not distinguish GPU because GPU names are many; for deployment and performance test, it's good to cache all engines
+# gpu_name = GPU_ABBREV(torch.cuda.get_device_name())
 
 VALID_PRECISION = [
-    # 'fp32',
-    # 'tf32',
+    'fp32',
+    'tf32',
     'fp16'
 ]
-
 
 parser = argparse.ArgumentParser(description="Build and test TensorRT engine.")
 parser.add_argument('--onnx', required=True, help='ONNX model path (or filename stem if in correctness check mode).')
 parser.add_argument('--build', nargs='+', help='Build TRT engine in precision fp32/tf32/fp16. You can list multiple precisions to build all of them.') # nargs='+': varible number of args, but require at least one
 parser.add_argument('--test', nargs='+', help='Test TRT engine in precision fp32/tf32/fp16. You can list multiple precisions to test all of them.')
-parser.add_argument('--correctness_check', nargs='+', help='Correctness check for original & plugin TRT engines in precision fp32/tf32/fp16. You can list multiple precisions to check all of them.')
-parser.add_argument('--plugin', type=str, help='Path to plugin library.')
+parser.add_argument('--correctness-check', nargs='+', help='Correctness check for original & plugin TRT engines in precision fp32/tf32/fp16. You can list multiple precisions to check all of them.')
 
 args = parser.parse_args()
 
@@ -89,14 +88,9 @@ MODEL_NAME = os.path.splitext(args.onnx)[0]
 BUILD = args.build
 TEST = args.test
 CORRECTNESS = args.correctness_check
-PLUGIN_PATH = args.plugin
-
-# load plugin
-import ctypes 
-ctypes.CDLL(PLUGIN_PATH)
 
 if not (args.build or args.test or args.correctness_check):
-    parser.error('Please specify --build and/or --test and/or --correctness_check' )
+    parser.error('Please specify --build and/or --test and/or --correctness-check' )
 
 if BUILD:
     for i in BUILD:
@@ -261,7 +255,6 @@ class TRTModel:
             # synchronize to ensure completion of async calls
             self.stream.synchronize()
 
-        
         if NUMPY: 
             return [out.host.reshape(batch_size,-1) for out in self.outputs], duration
         elif TORCH:
@@ -273,6 +266,11 @@ def build_engine():
     TRT_BUILDER = trt.Builder(TRT_LOGGER)
 
     for precision in BUILD:
+        engine_filename = '_'.join([MODEL_NAME, gpu_name, precision]) + '.engine'
+        if os.path.exists(engine_filename):
+            print(f'Engine file {engine_filename} exists. Skip building...')
+            continue
+
         print(f'Building {precision} engine of {MODEL_NAME} model on {gpu_name} GPU...')
 
         ## parse ONNX model
@@ -287,17 +285,17 @@ def build_engine():
         ## build TRT engine (configuration options at: https://docs.nvidia.com/deeplearning/tensorrt/api/python_api/infer/Core/BuilderConfig.html#ibuilderconfig)
         config = TRT_BUILDER.create_builder_config()
         
+        seq_len = network.get_input(0).shape[1]
+        
         # handle dynamic shape (min/opt/max): https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html#work_dynamic_shapes
+        # by default batch dim set as 1 for all min/opt/max. If there are batch need, change the value for opt and max accordingly
         profile = TRT_BUILDER.create_optimization_profile() 
-        profile.set_shape("input_ids", (1,2048), (1,2048), (1,2048)) 
-        profile.set_shape("attention_mask", (1,2048), (1,2048), (1,2048)) 
+        profile.set_shape("input_ids", (1,seq_len), (1,seq_len), (1,seq_len)) 
+        profile.set_shape("attention_mask", (1,seq_len), (1,seq_len), (1,seq_len)) 
         config.add_optimization_profile(profile)
         
         # workspace
-        if TRT_VERSION == '8.4':
-            config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 4096 * (1 << 20)) # 4096 MiB, not in 8.2.3. 8.4.0 only. By checking print(dir(config)), I found it's max_workspace_size for 8.2.3
-        elif TRT_VERSION == '8.2':
-            config.max_workspace_size = 4096 * (1 << 20)
+        config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 4096 * (1 << 20)) # after TRT version 8.4 only. For 8.2 and prior, it's config.max_workspace_size
 
         # precision
         if precision == 'fp32':
@@ -312,7 +310,6 @@ def build_engine():
         # engine = TRT_BUILDER.build_engine(network, config) # just engine
         
         ## save TRT engine
-        engine_filename = '_'.join([MODEL_NAME, gpu_name, precision]) + '.engine'
         with open(engine_filename, 'wb') as f:
             f.write(serialized_engine)
         print(f'Engine is saved to {engine_filename}')
@@ -328,7 +325,7 @@ def test_engine():
         
         ## psuedo-random input test
         batch_size = 1
-        seq_len = 2048
+        seq_len = model.engine.get_binding_shape(0)[1]
         vocab = 128203
         gpu = torch.device('cuda')
         torch.manual_seed(0) # make sure in each test the seed are the same
@@ -361,7 +358,7 @@ def correctness_check_engines():
         
         ## psuedo-random input test
         batch_size = 1
-        seq_len = 2048
+        seq_len = model1.engine.get_binding_shape(0)[1]
         vocab = 128203
         gpu = torch.device('cuda')
         # torch.manual_seed(0) # make sure in each test the seed are the same
@@ -372,14 +369,11 @@ def correctness_check_engines():
         outputs1, _ = model1(inputs)
         outputs2, _ = model2(inputs)
 
-        ## MSFT data test
-        # TBD (load customer's test data)
-
         # element-wise and layer-wise output comparison
         for i in range(len(outputs1)):
             avg_abs_error = torch.sum(torch.abs(torch.sub(outputs1[i], outputs2[i]))) / torch.numel(outputs1[i])
             max_abs_error = torch.max(torch.abs(torch.sub(outputs1[i], outputs2[i])))
-            print(f"[Layer {i} Element-wise Check] Avgerage absolute error: {avg_abs_error.item():e}, Maximum absolute error: {max_abs_error.item():e}. Between the order of 1e-3 and 1e-4 is the expected precision for FP16 (10 significance bits)" ) # machine epsilon for different precisions: https://en.wikipedia.org/wiki/Machine_epsilon
+            print(f"[Layer {i} Element-wise Check] Avgerage absolute error: {avg_abs_error.item():e}, Maximum absolute error: {max_abs_error.item():e}. 1e-3~1e-4 expected for FP16 (10 significance bits) and 1e-7~1e-8 expected for FP32 (23 significance bits)" ) # machine epsilon for different precisions: https://en.wikipedia.org/wiki/Machine_epsilon
 
 if BUILD:
     build_engine()
