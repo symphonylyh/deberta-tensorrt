@@ -27,6 +27,14 @@ It is recommended to use docker for reproducing the following steps. Follow the 
 
 **Example: Ubuntu 20.04 on x86-64 with cuda-11.6.2 (default)**
 ```bash
+# clone TensorRT OSS repo
+git clone https://github.com/NVIDIA/TensorRT.git
+
+# clone this repo
+git clone -b 8.4-GA https://github.com/symphonylyh/deberta-tensorrt.git
+# place this repo under TensorRT demo folder
+mkdir -p TensorRT/demo/DeBERTa && cp -r deberta-tensorrt/* TensorRT/demo/DeBERTa
+
 ## at root of TensorRT OSS
 # build container
 ./docker/build.sh --file docker/ubuntu-20.04.Dockerfile --tag tensorrt-ubuntu20.04-cuda11.6
