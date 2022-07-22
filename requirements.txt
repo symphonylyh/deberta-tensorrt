@@ -18,8 +18,7 @@
 -f https://download.pytorch.org/whl/cu113/torch_stable.html
 torch==1.11.0+cu113
 transformers==4.18.0
-onnxruntime-gpu==1.11.0
-# onnxruntime-gpu>=1.12 # change to this after ORT official release in end July 2022
+onnxruntime-gpu>=1.12
 argparse
 --extra-index-url https://pypi.ngc.nvidia.com
 polygraphy
