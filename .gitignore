@@ -2,7 +2,6 @@
 *.engine
 *.profile
 
-*.txt
 *.trace
 *.log
 *.nsys-rep
